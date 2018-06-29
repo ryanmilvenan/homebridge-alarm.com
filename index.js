@@ -56,7 +56,7 @@ module.exports = homebridge => {
 			options: ['-n'],
 		},
 		[Characteristic.SecuritySystemTargetState.DISARM]: {
-			apiVerb: 'disarm/latest',
+			action: 'disarm',
 			currentState: Characteristic.SecuritySystemCurrentState.DISARMED,
 			name: 'Disarmed',
 			options: [],
