@@ -262,7 +262,7 @@ module.exports = homebridge => {
 	}
 
 	class PyAlarm {
-		static send(config, action = 'status', options) {
+		static send(config, action = 'status', options = []) {
 			const creds = [`-u ${config.username}`, `-p ${config.password}`]
 			const py_args = {
 				pythonPath: "./.venv/bin/python",
