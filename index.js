@@ -2,6 +2,7 @@
 
 const nodeify = require('nodeify');
 const rp = require('request-promise');
+const p_shell = require('python-shell');
 
 module.exports = homebridge => {
 	const Accessory = homebridge.platformAccessory;
@@ -37,24 +38,28 @@ module.exports = homebridge => {
 
 	const TargetSecuritySystemStateConfig = {
 		[Characteristic.SecuritySystemTargetState.STAY_ARM]: {
-			apiVerb: 'armstay/latest',
+			action: 'armstay',
 			currentState: Characteristic.SecuritySystemCurrentState.STAY_ARM,
 			name: 'Armed Stay',
+			options: [],
 		},
 		[Characteristic.SecuritySystemTargetState.AWAY_ARM]: {
-			apiVerb: 'armaway/latest',
+			action: 'armaway',
 			currentState: Characteristic.SecuritySystemCurrentState.AWAY_ARM,
 			name: 'Armed Away',
+			options: [],
 		},
 		[Characteristic.SecuritySystemTargetState.NIGHT_ARM]: {
-			apiVerb: 'armstay/latest',
+			action: 'armstay',
 			currentState: Characteristic.SecuritySystemCurrentState.NIGHT_ARM,
 			name: 'Armed Night',
+			options: ['-n'],
 		},
 		[Characteristic.SecuritySystemTargetState.DISARM]: {
 			apiVerb: 'disarm/latest',
 			currentState: Characteristic.SecuritySystemCurrentState.DISARMED,
 			name: 'Disarmed',
+			options: [],
 		},
 	};
 
@@ -246,29 +251,70 @@ module.exports = homebridge => {
 
 			this.getService(Service.SecuritySystem)
 				.getCharacteristic(Characteristic.SecuritySystemCurrentState)
-				.on('get', callback => nodeify(this.getState(), callback));
+				.on('get', callback => nodeify(PyAlarm.getState(), callback));
 
 			this.getService(Service.SecuritySystem)
 				.getCharacteristic(Characteristic.SecuritySystemTargetState)
-				.on('get', callback => nodeify(this.getState(), callback))
-				.on('set', (state, callback) => nodeify(this.setState(state), callback));
+				.on('get', callback => nodeify(PyAlarm.getState(platform.log, platform.config), callback))
+				.on('set', (state, callback) => nodeify(PyAlarm.setState(platform.log, platform.config, state, this.getService(Service.SecuritySystem)), callback));
 		}
 
-		getState() {
-			return this.api.login().then(session => session.currentState);
-		}
+	}
 
-		setState(targetState) {
-			return this.api.login().then(session => {
-				const targetStateConfig = TargetSecuritySystemStateConfig[targetState];
-				this.log(`Setting security system to \`${targetStateConfig.name}\`.`);
-
-				return session.send(targetStateConfig.apiVerb).then(() => {
-					this.getService(Service.SecuritySystem).setCharacteristic(
-						Characteristic.SecuritySystemCurrentState,
-						targetStateConfig.currentState
-					);
+	class PyAlarm {
+		static send(config, action = 'status', options) {
+			const creds = [`-u ${config.username}`, `-p ${config.password}`]
+			const py_args = {
+				pythonPath: "./.venv/bin/python",
+				args: [...creds, ...options, action]
+			}
+			return new Promise((resolve, reject) => {
+				p_shell.run('alarm.py', py_args, (err, results) => {
+					if(err) {
+						reject(err);
+					}
+					resolve(results)
 				});
+			})
+		}
+
+		static getState(log, config) {
+			return PyAlarm.send(config).then(([status]) => {
+				switch(status) {
+					case 'current status is DISARM':
+						return Characteristic.SecuritySystemCurrentState.DISARMED;
+					case 'current status is ARMSTAY':
+						return Characteristic.SecuritySystemCurrentState.STAY_ARM;
+					case 'current status is ARMAWAY':
+						return Characteristic.SecuritySystemCurrentState.AWAY_ARM;
+					default:
+						return null
+				}
+			}).catch(err => {
+				log("Error getting security state", err);
+				return null;
+			});
+		}
+
+		static setState(log, config, targetState, service) {
+			const targetStateConfig = TargetSecuritySystemStateConfig[targetState];
+			log(`Setting security system to \`${targetStateConfig.name}\`.`);
+			return PyAlarm.send(config, targetStateConfig.action, targetStateConfig.options).then(([status]) => {
+				let newState = null;
+				switch(status) {
+					case 'current status is DISARM':
+						newState = Characteristic.SecuritySystemCurrentState.DISARMED;
+					case 'current status is ARMSTAY':
+						newState = Characteristic.SecuritySystemCurrentState.STAY_ARM;
+					case 'current status is ARMAWAY':
+						newState = Characteristic.SecuritySystemCurrentState.AWAY_ARM;
+					default:
+						newState = null
+				}
+				service.setCharacteristic(Characteristic.SecuritySystemCurrentState, newState)
+			}).catch(err => {
+				log("Error setting security state", err);
+				return null;
 			});
 		}
 	}

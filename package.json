@@ -21,5 +21,8 @@
   "dependencies": {
     "nodeify": "^1.0.0",
     "request-promise": "^2.0.1"
+  },
+  "scripts": {
+    "setup": "export PIPENV_VENV_IN_PROJECT=true; pipenv install"
   }
 }
