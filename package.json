@@ -23,6 +23,6 @@
     "request-promise": "^2.0.1"
   },
   "scripts": {
-    "setup": "export PIPENV_VENV_IN_PROJECT=true; pipenv install"
+    "setup": "export PIPENV_VENV_IN_PROJECT=true; pipenv install --two"
   }
 }
