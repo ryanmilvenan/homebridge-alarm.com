@@ -256,7 +256,7 @@ module.exports = homebridge => {
 			this.getService(Service.SecuritySystem)
 				.getCharacteristic(Characteristic.SecuritySystemTargetState)
 				.on('get', callback => nodeify(PyAlarm.getState(platform.log, platform.config), callback))
-				.on('set', (state, callback) => nodeify(PyAlarm.setState(platform.log, platform.config, state, this.getService(Service.SecuritySystem)), callback));
+				.on('set', (state, callback) => nodeify(PyAlarm.setState(platform.log, platform.config, state, this), callback));
 		}
 
 	}
@@ -298,22 +298,12 @@ module.exports = homebridge => {
 			});
 		}
 
-		static setState(log, config, targetState, service) {
+		static setState(log, config, targetState, accessory) {
 			const targetStateConfig = TargetSecuritySystemStateConfig[targetState];
 			log(`Setting security system to \`${targetStateConfig.name}\`.`);
 			return PyAlarm.send(log, config, targetStateConfig.action, targetStateConfig.options).then(([status]) => {
-				switch(status) {
-					case 'current status is DISARM':
-						return Characteristic.SecuritySystemCurrentState.DISARMED;
-					case 'current status is ARMSTAY':
-						return Characteristic.SecuritySystemCurrentState.STAY_ARM;
-					case 'current status is ARMAWAY':
-						return Characteristic.SecuritySystemCurrentState.AWAY_ARM;
-					default:
-						return null
-				}
-			}).then((newState) => {
-				return service.setCharacteristic(Characteristic.SecuritySystemCurrentState, newState)
+				log(`Response from Alarm.com ${status}`)
+				return accessory.getService(Service.SecuritySystem).setCharacteristic(Characteristic.SecuritySystemCurrentState, targetStateConfig.currentState);
 			}).catch(err => {
 				log("Error setting security state", err);
 				return null;
