@@ -140,12 +140,13 @@ class AlarmDotCom(object):
 		else:
 			apiMethod = 'POST'
 			apiBody = '{"forceBypass":'+str(forceBypass).lower()+',"noEntryDelay":'+str(noEntryDelay).lower()+',"silentArming":'+str(silentArming).lower()+',"statePollOnly":false}'
-			# apiBody = '{"forceBypass":false, "noEntryDelay":false, "silentArming":false, "statePollOnly":false}'
-		log.debug("API BODY {}".format(apiBody))
 
 		result = self.api_call(apiUrl, apiMethod, apiBody)
 		currentstate = result['data']['attributes']['state']
-		self.state = states[currentstate]
+		if noEntryDelay:
+			self.state = states[currentstate] + '-NIGHT'
+		else:
+			self.state = states[currentstate]
 		panel_id = result['data']['relationships']['stateInfo']['data']['id']
 		log.debug ("Current state is "+states[currentstate])
 		log.debug ("panel_id is "+panel_id)
