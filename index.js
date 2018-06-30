@@ -287,6 +287,8 @@ module.exports = homebridge => {
 						return Characteristic.SecuritySystemCurrentState.DISARMED;
 					case 'current status is ARMSTAY':
 						return Characteristic.SecuritySystemCurrentState.STAY_ARM;
+					case 'current status is ARMSTAY-NIGHT':
+						return Characteristic.SecuritySystemCurrentState.NIGHT_ARM;
 					case 'current status is ARMAWAY':
 						return Characteristic.SecuritySystemCurrentState.AWAY_ARM;
 					default:
