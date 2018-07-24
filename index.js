@@ -280,16 +280,16 @@ module.exports = homebridge => {
 			})
 		}
 
-		static getState(log, config) {
-			return PyAlarm.send(log, config).then(([status]) => {
+		static getState(log) {
+			return rp("http://localhost:8000/state").then(({status}) => {
 				switch(status) {
-					case 'current status is DISARM':
+					case 'disarmed':
 						return Characteristic.SecuritySystemCurrentState.DISARMED;
-					case 'current status is ARMSTAY':
+					case 'stay':
 						return Characteristic.SecuritySystemCurrentState.STAY_ARM;
-					case 'current status is ARMSTAY-NIGHT':
+					case 'night':
 						return Characteristic.SecuritySystemCurrentState.NIGHT_ARM;
-					case 'current status is ARMAWAY':
+					case 'away':
 						return Characteristic.SecuritySystemCurrentState.AWAY_ARM;
 					default:
 						return null
@@ -305,11 +305,31 @@ module.exports = homebridge => {
 			log(`Setting security system to \`${targetStateConfig.name}\`.`);
 			return PyAlarm.send(log, config, targetStateConfig.action, targetStateConfig.options).then(([status]) => {
 				log(`Response from Alarm.com ${status}`)
+				return PyAlarm.updateStateAPI(status)
+			}).then(() => {
 				return accessory.getService(Service.SecuritySystem).setCharacteristic(Characteristic.SecuritySystemCurrentState, targetStateConfig.currentState);
-			}).catch(err => {
+			})
+			.catch(err => {
 				log("Error setting security state", err);
 				return null;
 			});
+		}
+
+		static updateStateAPI(status) {
+			let body = {status: "disarmed"}
+			switch(status) {
+				case 'current status is DISARM':
+					body = {status: "disarmed"}
+				case 'current status is ARMSTAY':
+					body = {status: "stay"}
+				case 'current status is ARMSTAY-NIGHT':
+					body = {status: "night"}
+				case 'current status is ARMAWAY':
+					body = {status: "away"}
+				default:
+			}
+			const options = {method: "POST", json: true}
+			return rp('http://localhost:8000/state', {...options, body})
 		}
 	}
 
